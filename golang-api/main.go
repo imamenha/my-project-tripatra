@@ -53,7 +53,7 @@ func inventoryById(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func createInventory(w http.ResponseWriter, r *http.Request) {
+func createOrUpdateInventory(w http.ResponseWriter, r *http.Request) {
 	// get the body of our POST request
 	// return the string response containing the request body
 	reqBody, _ := ioutil.ReadAll(r.Body)
@@ -63,12 +63,17 @@ func createInventory(w http.ResponseWriter, r *http.Request) {
 	json.Unmarshal(reqBody, &inventory)
 	// update our global inventory array to include
 	// our new inventory
+	for i, inv := range Inventories {
+		if inv.Id == inventory.Id {
+			Inventories = append(Inventories[:i], Inventories[i+1:]...)
+		}
+	}
 	Inventories = append(Inventories, inventory)
 
 	json.NewEncoder(w).Encode(inventory)
 }
 
-func deleteArticle(w http.ResponseWriter, r *http.Request) {
+func deleteInventory(w http.ResponseWriter, r *http.Request) {
 	// once again, we will need to parse the path parameters
 	vars := mux.Vars(r)
 	// we will need to extract the `id` of the inventory we
@@ -98,9 +103,10 @@ func handleRequests() {
 
 	myRouter.HandleFunc("/inventory/{id}", inventoryById)
 
-	myRouter.HandleFunc("/inventory", createInventory).Methods("POST")
+	myRouter.HandleFunc("/inventory", createOrUpdateInventory).Methods("POST")
+	myRouter.HandleFunc("/inventory", createOrUpdateInventory).Methods("PUT")
 
-	myRouter.HandleFunc("/inventory/{id}", createInventory).Methods("DELETE")
+	myRouter.HandleFunc("/inventory/{id}", deleteInventory).Methods("DELETE")
 
 	log.Fatal(http.ListenAndServe(":10000", myRouter))
 }
