@@ -8,7 +8,14 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"gopkg.in/gomail.v2"
 )
+
+const CONFIG_SMTP_HOST = "smtp.gmail.com"
+const CONFIG_SMTP_PORT = 587
+const CONFIG_SENDER_NAME = "System Auto Send <systemimam@gmail.com>"
+const CONFIG_AUTH_EMAIL = "systemimam@gmail.com"
+const CONFIG_AUTH_PASSWORD = "Sy5t3mIm4m"
 
 type InventoryType struct {
 	Id   int    `json:"id"`
@@ -63,12 +70,17 @@ func createOrUpdateInventory(w http.ResponseWriter, r *http.Request) {
 	json.Unmarshal(reqBody, &inventory)
 	// update our global inventory array to include
 	// our new inventory
+	var isUpdate bool = false
 	for i, inv := range Inventories {
 		if inv.Id == inventory.Id {
 			Inventories = append(Inventories[:i], Inventories[i+1:]...)
+			isUpdate = true
 		}
 	}
 	Inventories = append(Inventories, inventory)
+	if !isUpdate {
+		sendEmail(inventory)
+	}
 
 	json.NewEncoder(w).Encode(inventory)
 }
@@ -109,6 +121,41 @@ func handleRequests() {
 	myRouter.HandleFunc("/inventory/{id}", deleteInventory).Methods("DELETE")
 
 	log.Fatal(http.ListenAndServe(":10000", myRouter))
+}
+
+func sendEmail(obj Inventory) {
+	mailer := gomail.NewMessage()
+	mailer.SetHeader("From", CONFIG_SENDER_NAME)
+	mailer.SetHeader("To", "i.nurhadianto@gmail.com")
+	mailer.SetAddressHeader("Cc", "imamnurhadianto@gmail.com", "Imam Nurhadianto")
+	mailer.SetHeader("Subject", "Receive New Material")
+	mailer.SetBody("text/html", "Hello <b>Warehouse Officer</b>, <br><br>New Material added with details : <br>ID : <b>"+obj.Id+"</b><br>Name : <b>"+obj.Name+"</b><br>Inventory Type : <b>"+getNameInvType(obj.InventoryType)+"</b>")
+	// mailer.Attach("./sample.png")
+
+	dialer := gomail.NewDialer(
+		CONFIG_SMTP_HOST,
+		CONFIG_SMTP_PORT,
+		CONFIG_AUTH_EMAIL,
+		CONFIG_AUTH_PASSWORD,
+	)
+
+	err := dialer.DialAndSend(mailer)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	log.Println("Mail sent!")
+}
+
+func getNameInvType(invType int) string {
+	var name string
+	for _, inventoryType := range InventoryTypes {
+		if inventoryType.Id == invType {
+			name = inventoryType.Name
+			break
+		}
+	}
+	return name
 }
 
 func main() {
