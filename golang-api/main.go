@@ -39,11 +39,13 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 
 func returnAllInventories(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Endpoint Hit: returnAllInventories")
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(Inventories)
 }
 
 func returnAllInventoryTypes(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Endpoint Hit: returnAllInventoryTypes")
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(InventoryTypes)
 }
 
@@ -53,6 +55,7 @@ func inventoryById(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("Key: " + key)
 
+	w.Header().Set("Content-Type", "application/json")
 	for _, inventory := range Inventories {
 		if inventory.Id == key {
 			json.NewEncoder(w).Encode(inventory)
@@ -82,6 +85,7 @@ func createOrUpdateInventory(w http.ResponseWriter, r *http.Request) {
 		sendEmail(inventory)
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(inventory)
 }
 
