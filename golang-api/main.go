@@ -6,7 +6,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"gopkg.in/gomail.v2"
 )
@@ -38,18 +40,24 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func returnAllInventories(w http.ResponseWriter, r *http.Request) {
+	enableCors(&w)
+
 	fmt.Println("Endpoint Hit: returnAllInventories")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(Inventories)
 }
 
 func returnAllInventoryTypes(w http.ResponseWriter, r *http.Request) {
+	enableCors(&w)
+
 	fmt.Println("Endpoint Hit: returnAllInventoryTypes")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(InventoryTypes)
 }
 
 func inventoryById(w http.ResponseWriter, r *http.Request) {
+	enableCors(&w)
+
 	vars := mux.Vars(r)
 	key := vars["id"]
 
@@ -63,7 +71,29 @@ func inventoryById(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func inventoryByKeyword(w http.ResponseWriter, r *http.Request) {
+	enableCors(&w)
+
+	vars := mux.Vars(r)
+	key := vars["keyword"]
+
+	fmt.Println("Key: " + key)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var SearchResult []Inventory
+	for _, inventory := range Inventories {
+		fmt.Println("Key: " + key + " Name: " + inventory.Name)
+		if strings.Contains(strings.ToLower(inventory.Name), strings.ToLower(key)) {
+			SearchResult = append(SearchResult, inventory)
+		}
+	}
+	json.NewEncoder(w).Encode(SearchResult)
+}
+
 func createOrUpdateInventory(w http.ResponseWriter, r *http.Request) {
+	enableCors(&w)
+
 	// get the body of our POST request
 	// return the string response containing the request body
 	reqBody, _ := ioutil.ReadAll(r.Body)
@@ -90,6 +120,8 @@ func createOrUpdateInventory(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteInventory(w http.ResponseWriter, r *http.Request) {
+	enableCors(&w)
+
 	// once again, we will need to parse the path parameters
 	vars := mux.Vars(r)
 	// we will need to extract the `id` of the inventory we
@@ -97,16 +129,24 @@ func deleteInventory(w http.ResponseWriter, r *http.Request) {
 	id := vars["id"]
 
 	// we then need to loop through all our inventories
-	for index, inventory := range Inventories {
-		// if our id path parameter matches one of our
-		// inventories
-		if inventory.Id == id {
-			// updates our inventories array to remove the
-			// inventory
-			Inventories = append(Inventories[:index], Inventories[index+1:]...)
+	if id != "" {
+		for index, inventory := range Inventories {
+			// if our id path parameter matches one of our
+			// inventories
+			if inventory.Id == id {
+				// updates our inventories array to remove the
+				// inventory
+				Inventories = append(Inventories[:index], Inventories[index+1:]...)
+			}
 		}
+	} else {
+		Inventories = []Inventory{}
 	}
 
+}
+
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
 }
 
 func handleRequests() {
@@ -118,13 +158,16 @@ func handleRequests() {
 	myRouter.HandleFunc("/inventories", returnAllInventories)
 
 	myRouter.HandleFunc("/inventory/{id}", inventoryById)
+	myRouter.HandleFunc("/inventoryByKeyword/{keyword}", inventoryByKeyword)
 
 	myRouter.HandleFunc("/inventory", createOrUpdateInventory).Methods("POST")
 	myRouter.HandleFunc("/inventory", createOrUpdateInventory).Methods("PUT")
 
+	myRouter.HandleFunc("/inventory", deleteInventory).Methods("DELETE")
 	myRouter.HandleFunc("/inventory/{id}", deleteInventory).Methods("DELETE")
 
-	log.Fatal(http.ListenAndServe(":10000", myRouter))
+	corsObj := handlers.AllowedOrigins([]string{"*"})
+	log.Fatal(http.ListenAndServe(":10000", handlers.CORS(corsObj)(myRouter)))
 }
 
 func sendEmail(obj Inventory) {
